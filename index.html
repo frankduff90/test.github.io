@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Convertidor de Monedas 💱</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.1/css/brands.min.css" integrity="sha512-7rXIvd/xj1FnI2zKQjjXzDFxC4twqBByp8yxOgEQJs4C/aNzNyoQsOO7VxH0RgYNhbAYLJLwzqslaP50KTTHIQ==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+</head>
+<body class="bg-light">
+    <div id="app" class="container py-4">
+        <!-- Sección de tasas dinámicas -->
+        <div v-for="(tasa, tipoTasa) in tasas" :key="tipoTasa" class="card mb-4 shadow-sm">
+            <div class="card-body">
+                <h3 class="card-title text-center">{{ tasa.nombre }}</h3>
+                <p class="text-center text-muted">Tasa actual: <strong>{{ tasa.valores.usd_to_bs.toFixed(4) }} Bs/USD</strong></p>
+                <div class="row gy-3">
+                    <div class="col-md-6">
+                        <label :for="`monto-${tipoTasa}`" class="form-label">Monto</label>
+                        <input type="number" :id="`monto-${tipoTasa}`" v-model="tasa.monto" class="form-control" placeholder="Ingrese el monto" min="0" step="0.01">
+                    </div>
+                    <div class="col-md-6">
+                        <label :for="`tipo-${tipoTasa}`" class="form-label">Convertir</label>
+                        <select :id="`tipo-${tipoTasa}`" v-model="tasa.tipoConversion" class="form-select">
+                            <option v-for="(label, key) in opcionesConversion" :key="key" :value="key">
+                                {{ label }}
+                            </option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <p class="mb-1">Resultado: <strong>{{ calcularResultado(tasa) }}</strong></p>
+                    <p class="text-muted">Tasa utilizada: <strong>{{ calcularTasa(tasa) }}</strong></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección de Tasa Fantasma -->
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h3 class="card-title text-center">Cálculo de Tasa Fantasma 👽</h3>
+                <div class="row gy-3">
+                    <div class="col-md-6">
+                        <label for="montoBs" class="form-label">Monto en Bs</label>
+                        <input id="montoBs" type="number" v-model="tasaFantasma.montoBs" class="form-control" placeholder="Ingrese el monto en Bs" min="0" step="0.01">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="montoUsd" class="form-label">Monto en USD</label>
+                        <input id="montoUsd" type="number" v-model="tasaFantasma.montoUsd" class="form-control" placeholder="Ingrese el monto en USD" min="0" step="0.01">
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button @click="calcularTasaFantasma" class="btn btn-primary w-100">Calcular Tasa Fantasma</button>
+                </div>
+                <div v-if="tasaFantasma.resultado" class="mt-4">
+                    <p class="mb-1"><strong>{{ tasaFantasma.resultado }}</strong></p>
+                    <p class="text-muted" v-if="tasaFantasma.diferencias.bcv">Diferencia con BCV: <strong>{{ tasaFantasma.diferencias.bcv }} Bs</strong></p>
+                    <p class="text-muted" v-if="tasaFantasma.diferencias.promedio">Diferencia con Promedio: <strong>{{ tasaFantasma.diferencias.promedio }} Bs</strong></p>
+                    <p class="text-muted" v-if="tasaFantasma.diferencias.paralelo">Diferencia con Paralelo: <strong>{{ tasaFantasma.diferencias.paralelo }} Bs</strong></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const app = Vue.createApp({
+            data() {
+                return {
+                    opcionesConversion: {
+                        usd_to_bs: 'USD a Bs 💵',
+                        bs_to_usd: 'Bs a USD 💵',
+                        bs_to_cop: 'Bs a COP 💵',
+                        usd_to_cop: 'USD a COP 💵',
+                        cop_to_usd: 'COP a USD 💵',
+                        cop_to_bs: 'COP a Bs 💵',
+                    },
+                    tasas: {
+                        bcv: {
+                            nombre: "Tasa BCV💱🔺",
+                            valores: {
+                                usd_to_bs: 48.3265,
+                                bs_to_usd: 1 / 48.3265,
+                                bs_to_cop: 4407.13 / 48.3265,
+                                usd_to_cop: 4407.13,
+                                cop_to_usd: 1 / 4407.13,
+                                cop_to_bs: 48.3265 / 4407.13,
+                            },
+                            monto: 0,
+                            tipoConversion: 'usd_to_bs',
+                        },
+                        promedio: {
+                            nombre: "Tasa Promedio💱📊",
+                            valores: {},
+                            monto: 0,
+                            tipoConversion: 'usd_to_bs',
+                        },
+                        paralelo: {
+                            nombre: "Tasa Paralelo💱🔺",
+                            valores: {
+                                usd_to_bs: 57.86,
+                                bs_to_usd: 1 / 57.86,
+                                bs_to_cop: 4407.13 / 57.86,
+                                usd_to_cop: 4407.13,
+                                cop_to_usd: 1 / 4407.13,
+                                cop_to_bs: 57.86 / 4407.13,
+                            },
+                            monto: 0,
+                            tipoConversion: 'usd_to_bs',
+                        },
+                    },
+                    tasaFantasma: {
+                        montoBs: 0,
+                        montoUsd: 0,
+                        resultado: '',
+                        diferencias: {
+                            bcv: null,
+                            promedio: null,
+                            paralelo: null,
+                        },
+                    },
+                };
+            },
+            created() {
+                const { bcv, paralelo } = this.tasas;
+                const promedio = (bcv.valores.usd_to_bs + paralelo.valores.usd_to_bs) / 2;
+                this.tasas.promedio.valores = {
+                    usd_to_bs: promedio,
+                    bs_to_usd: 1 / promedio,
+                    bs_to_cop: 4407.13 / promedio,
+                    usd_to_cop: 4407.13,
+                    cop_to_usd: 1 / 4407.13,
+                    cop_to_bs: promedio / 4407.13,
+                };
+            },
+            methods: {
+                calcularTasa(tasa) {
+                    const conversion = tasa.valores[tasa.tipoConversion];
+                    return conversion ? `1 → ${conversion.toFixed(5)}` : 'No disponible';
+                },
+                calcularResultado(tasa) {
+                    const conversion = tasa.valores[tasa.tipoConversion];
+                    if (!conversion || tasa.monto <= 0) return "Ingrese un monto válido";
+                    const resultado = tasa.monto * conversion;
+                    return `${tasa.monto.toFixed(2)} → ${resultado.toFixed(2)}`;
+                },
+                calcularTasaFantasma() {
+                    const { montoBs, montoUsd } = this.tasaFantasma;
+
+                    if (montoBs <= 0 || montoUsd <= 0) {
+                        this.tasaFantasma.resultado = "Ambos montos deben ser mayores a 0.";
+                        return;
+                    }
+                    const tasaFantasma = montoBs / montoUsd;
+                    const bcv = this.tasas.bcv.valores.usd_to_bs;
+                    const paralelo = this.tasas.paralelo.valores.usd_to_bs;
+                    const promedio = this.tasas.promedio.valores.usd_to_bs;
+
+                    this.tasaFantasma.resultado = `Tasa Fantasma: ${tasaFantasma.toFixed(4)} Bs/USD`;
+                    this.tasaFantasma.diferencias.bcv = (tasaFantasma - bcv).toFixed(4);
+                    this.tasaFantasma.diferencias.promedio = (tasaFantasma - promedio).toFixed(4);
+                    this.tasaFantasma.diferencias.paralelo = (tasaFantasma - paralelo).toFixed(4);
+                },
+            },
+        });
+
+        app.mount('#app');
+    </script>
+</body>
+</html>
